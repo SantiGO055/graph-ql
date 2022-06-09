@@ -1,5 +1,20 @@
 const { ApolloServer, gql, UserInputError } = require('apollo-server')
 const { v1: uuid } = require('uuid')
+const mongoose = require('mongoose')
+require('dotenv').config();
+
+const url_db = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.h6zdp.mongodb.net/person-app?retryWrites=true`
+
+const Person = require('./models/person')
+
+mongoose.connect(url_db)
+  .then(() => {
+    console.log('connected to MongoDB')
+  })
+  .catch((error) => {
+    console.log('error connection to MongoDB:', error)
+  })
+  
 let persons = [
     {
       name: "Arto Hellas",
@@ -63,11 +78,12 @@ const resolvers = {
       personCount: () => persons.length,
       allPersons: (root, args) => {
         if (!args.phone) {
-            return persons
+            return Person.find({})
           }
           const byPhone = (person) =>
             args.phone === 'YES' ? person.phone : !person.phone
           return persons.filter(byPhone)
+          // return Person.find({ phone: { $exists: args.phone === 'YES'  }})
       },
       findPerson: (root, args) =>{
         return persons.find(p => p.name === args.name)
