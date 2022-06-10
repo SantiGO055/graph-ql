@@ -6,6 +6,7 @@ const {
   ApolloError
 } = require("apollo-server");
 const { v1: uuid } = require("uuid");
+const BSON = require("bson");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
@@ -15,6 +16,7 @@ const url_db = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWO
 const Book = require("./models/book");
 const Author = require("./models/author");
 const User = require("./models/user");
+const { argsToArgsConfig } = require("graphql/type/definition");
 
 let authors = [
   {
@@ -49,6 +51,7 @@ mongoose
   .catch((error) => {
     console.log("error connection to MongoDB:", error);
   });
+
 /*
  * Suomi:
  * Saattaisi olla järkevämpää assosioida kirja ja sen tekijä tallettamalla kirjan yhteyteen tekijän nimen sijaan tekijän id
@@ -189,6 +192,8 @@ const resolvers = {
       // return a;
     },
     allAuthors: (root, args) => {
+      //#region codigo anterior
+
       // let auxArr = [];
       // let idAux = 0;
       // let autoresEncontradosEnLosLibros = undefined;
@@ -212,11 +217,18 @@ const resolvers = {
       //     return auxArr.indexOf(item) === index;
       //   })
       // return unicos;
+      //#endregion
       return Author.find({}).then((a) => a);
+    },
+    me: (root, args, context) => {
+      return context.currentUser;
     }
   },
   Mutation: {
-    addBook: async (root, args) => {
+    addBook: async (root, args, { currentUser }) => {
+      if (!currentUser) {
+        throw new AuthenticationError("not authenticated");
+      }
       const author = await Author.findOne({ name: args.author.name }).then(
         (a) => a
       );
@@ -295,7 +307,10 @@ const resolvers = {
       return author;
     },
     createUser: async (root, args) => {
-      const user = new User({ username: args.username });
+      const user = new User({
+        username: args.username,
+        favoriteGenre: args.favoriteGenre
+      });
       return user.save().catch((error) => {
         throw new UserInputError(error.message, {
           invalidArgs: args
